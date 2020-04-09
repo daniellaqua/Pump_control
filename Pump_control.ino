@@ -9,12 +9,10 @@ const float LSB = 0.003223;
 
 // variables will change:
 int sensorValue = 0;  // variable to store the value coming from the sensor
-int sensorValueMW = 0;
 float sensorVoltage = 0;
 int sensorPressure = 0;
 int buttonState = 0;         // variable for reading the pushbutton status
 int pumpState = 0;
-float ETA=0.95; // ETA anfangs festlegen, ggf. noch justieren, kann auch bei 0.90 oder 0.99 liegen=> rumprobieren!
 
 void setup() {
   // declare the ledPin as an OUTPUT:
@@ -29,9 +27,8 @@ void setup() {
 void loop() {
   // read the value from the sensor:
   sensorValue = analogRead(sensorPin);
-  sensorValueMW = ETA*(sensorValue) + (1-ETA)*sensorValueMW;
-  sensorVoltage = sensorValueMW * LSB;
-  sensorPressure = sensorValueMW * 250;
+  sensorVoltage = sensorValue * LSB;
+  sensorPressure = sensorValue * 250;
   //Serial.println();
   //Serial.print("Pressure: ");
   //Serial.print(sensorValue);
@@ -47,7 +44,7 @@ void loop() {
     Serial.println("pressure level reached");
     Serial.println("Pump: OFF");
     Serial.print("Sensor value: ");
-    Serial.println(sensorValueMW);
+    Serial.println(sensorValue);
     Serial.print("Sensor voltage: ");
     Serial.println(sensorVoltage);
     Serial.print("Pressure: ");
@@ -67,7 +64,7 @@ void loop() {
       Serial.println();
       Serial.println("Pump: OFF");
       Serial.print("Sensor value: ");
-      Serial.println(sensorValueMW);
+      Serial.println(sensorValue);
       Serial.print("Sensor voltage: ");
       Serial.println(sensorVoltage);
       Serial.print("Pressure: ");
@@ -82,7 +79,7 @@ void loop() {
         Serial.println();
         Serial.println("Pump: ON");
         Serial.print("Sensor value: ");
-        Serial.println(sensorValueMW);
+        Serial.println(sensorValue);
         Serial.print("Sensor voltage: ");
         Serial.println(sensorVoltage);
         Serial.print("Pressure: ");
@@ -92,7 +89,7 @@ void loop() {
         Serial.println();
         Serial.println("Pressure already high!");
         Serial.print("Sensor value: ");
-        Serial.println(sensorValueMW);
+        Serial.println(sensorValue);
         Serial.print("Sensor voltage: ");
         Serial.println(sensorVoltage);
         Serial.print("Pressure: ");
