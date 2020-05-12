@@ -1,6 +1,24 @@
+/*****
+ 
+ All the resources for this project:
+ https://randomnerdtutorials.com/
+ 
+*****/
 
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+
+
+const char* ssid = "WLAN-314868";
+const char* password = "83191081396733674200";
+const char* mqtt_broker = "192.168.2.148";
+
+// Initializes the espClient. You should change the espClient name if you have multiple ESPs running in your home automation system
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 int sensorPin = A0;    // select the input pin for the potentiometer
+const int ledRot = D5;      // select the pin for the LED
 const int ledPin = 13;      // select the pin for the LED
 const int buttonPin = 12;     // the number of the pushbutton pin
 const int pressure_lvl_ready = 600;
@@ -14,14 +32,121 @@ int sensorPressure = 0;
 int buttonState = 0;         // variable for reading the pushbutton status
 int pumpState = 0;
 
+// Timers auxiliar variables
+long mqtt_delay = 0;
+long lastMeasure = 0;
+
+void setup_wifi() {
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("WiFi connected - ESP IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+// This functions is executed when some device publishes a message to a topic that your ESP8266 is subscribed to
+// Change the function below to add logic to your program, so when a device publishes a message to a topic that 
+// your ESP8266 is subscribed you can actually do something
+void callback(String topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  // Feel free to add more if statements to control more GPIOs with MQTT
+
+  // If a message is received on the topic room/lamp, you check if the message is either on or off. Turns the lamp GPIO according to the message
+  if(topic=="Pumpensteuerung/Pumpe_Maternal"){
+      Serial.print("Changing Room lamp to ");
+      if(messageTemp == "on"){
+        digitalWrite(ledPin, HIGH);
+        Serial.print("On");
+      }
+      else if(messageTemp == "off"){
+        digitalWrite(ledPin, LOW);
+        Serial.print("Off");
+      }
+  }
+  Serial.println();
+}
+
+// This functions reconnects your ESP8266 to your MQTT broker
+// Change the function below if you want to subscribe to more topics with your ESP8266 
+//void reconnect() {
+//  // Loop until we're reconnected
+//  while (!client.connected()) {
+//    Serial.print("Attempting MQTT connection...");
+//    // Attempt to connect
+//    /*
+//     YOU MIGHT NEED TO CHANGE THIS LINE, IF YOU'RE HAVING PROBLEMS WITH MQTT MULTIPLE CONNECTIONS
+//     To change the ESP device ID, you will have to give a new name to the ESP8266.
+//     Here's how it looks:
+//       if (client.connect("ESP8266Client")) {
+//     You can do it like this:
+//       if (client.connect("ESP1_Office")) {
+//     Then, for the other ESP:
+//       if (client.connect("ESP2_Garage")) {
+//      That should solve your MQTT multiple connections problem
+//    */
+//    if (client.connect("ESP8266Client")) {
+//      Serial.println("connected");  
+//      // Subscribe or resubscribe to a topic
+//      // You can subscribe to more topics (to control more LEDs in this example)
+//      client.subscribe("Pumpensteuerung/Pumpe_Maternal");
+//    } else {
+//      Serial.print("failed, rc=");
+//      Serial.print(client.state());
+//      Serial.println(" try again in 5 seconds");
+//      // Wait 5 seconds before retrying
+//      delay(5000);
+//    }
+//  }
+//}
+
+
+
 void setup() {
   // declare the ledPin as an OUTPUT:
   pinMode(ledPin, OUTPUT);
+  pinMode(ledRot, OUTPUT);
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
+  
   Serial.begin(115200);
+  
+  setup_wifi();
+  client.setServer(mqtt_broker, 1883);
+  client.setCallback(callback);
+
+  
   Serial.println();
   Serial.println("Pressure Control");
+}
+
+void reconnect() {
+    while (!client.connected()) {
+        Serial.print("Reconnecting...");
+        if (!client.connect("ESP8266Client")) {
+            Serial.print("failed, rc=");
+            Serial.print(client.state());
+            Serial.println(" retrying in 5 seconds");
+            delay(5000);
+        }
+    }
 }
 
 void loop() {
@@ -33,12 +158,37 @@ void loop() {
   //Serial.print("Pressure: ");
   //Serial.print(sensorValue);
 
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+  mqtt_delay = mqtt_delay +1;
+  //  // Publishes new temperature and humidity every 3 seconds
+  if (mqtt_delay == 10000) {
+    digitalWrite(ledRot, HIGH);
+    mqtt_delay = 0;
+    static char Vordruck[7];
+    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+    digitalWrite(ledRot, LOW);
+  }
+
+
+
+
   if (sensorValue >= pressure_lvl_ready && pumpState == 1) {
     // turn LED off:
     digitalWrite(ledPin, LOW);
     // change pump state to OFF
     pumpState = 0;
+//    client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
     // print "Pump OFF"
+
+
+    static char Vordruck[7];
+    dtostrf(sensorVoltage, 6, 2, Vordruck);
+//    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
 
     Serial.println();
     Serial.println("pressure level reached");
@@ -60,6 +210,12 @@ void loop() {
       digitalWrite(ledPin, LOW);
       // change pump state to OFF
       pumpState = 0;
+//        client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
+
+    static char Vordruck[7];
+    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+      
       // print "Pump OFF"
       Serial.println();
       Serial.println("Pump: OFF");
@@ -75,6 +231,12 @@ void loop() {
         digitalWrite(ledPin, HIGH);
         // change pump state to ON
         pumpState = 1;
+ //       client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
+
+    static char Vordruck[7];
+    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+        
         // print "Pump ON"
         Serial.println();
         Serial.println("Pump: ON");
@@ -85,6 +247,11 @@ void loop() {
         Serial.print("Pressure: ");
         Serial.println(sensorPressure);
       } else {
+
+    static char Vordruck[7];
+    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+        
         // print "pressure already high"
         Serial.println();
         Serial.println("Pressure already high!");
@@ -98,5 +265,5 @@ void loop() {
     }
   delay(200);  
   }
-
+ //  delay(500); 
 }
