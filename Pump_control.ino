@@ -1,25 +1,16 @@
-/*****
- 
- All the resources for this project:
- https://randomnerdtutorials.com/
- 
-*****/
-
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
+ 
+const char* SSID = "WLAN-314868";
+const char* PSK = "83191081396733674200";
+const char* MQTT_BROKER = "192.168.2.148";
 
-
-const char* ssid = "WLAN-314868";
-const char* password = "83191081396733674200";
-const char* mqtt_broker = "192.168.2.148";
-
-// Initializes the espClient. You should change the espClient name if you have multiple ESPs running in your home automation system
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 int sensorPin = A0;    // select the input pin for the potentiometer
-const int ledRot = D5;      // select the pin for the LED
-const int ledPin = 13;      // select the pin for the LED
+const int ledRot = D0;      // select the pin for the LED
+const int ledPin = D1;      // select the pin for the LED
 const int buttonPin = 12;     // the number of the pushbutton pin
 const int pressure_lvl_ready = 600;
 const int pressure_lvl_still_ready = 540;
@@ -34,55 +25,39 @@ int pumpState = 0;
 
 // Timers auxiliar variables
 long mqtt_delay = 0;
-long lastMeasure = 0;
 
-void setup_wifi() {
-  delay(10);
-  // We start by connecting to a WiFi network
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("WiFi connected - ESP IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-// This functions is executed when some device publishes a message to a topic that your ESP8266 is subscribed to
-// Change the function below to add logic to your program, so when a device publishes a message to a topic that 
-// your ESP8266 is subscribed you can actually do something
-void callback(String topic, byte* message, unsigned int length) {
-  Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
-  Serial.print(". Message: ");
-  String messageTemp;
-  
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)message[i]);
-    messageTemp += (char)message[i];
-  }
-  Serial.println();
-
-  // Feel free to add more if statements to control more GPIOs with MQTT
-
-  // If a message is received on the topic room/lamp, you check if the message is either on or off. Turns the lamp GPIO according to the message
-  if(topic=="Pumpensteuerung/Pumpe_Maternal"){
-      Serial.print("Changing Room lamp to ");
-      if(messageTemp == "on"){
-        digitalWrite(ledPin, HIGH);
-        Serial.print("On");
-      }
-      else if(messageTemp == "off"){
-        digitalWrite(ledPin, LOW);
-        Serial.print("Off");
-      }
-  }
-  Serial.println();
-}
+//
+//// This functions is executed when some device publishes a message to a topic that your ESP8266 is subscribed to
+//// Change the function below to add logic to your program, so when a device publishes a message to a topic that 
+//// your ESP8266 is subscribed you can actually do something
+//void callback(String topic, byte* message, unsigned int length) {
+//  Serial.print("Message arrived on topic: ");
+//  Serial.print(topic);
+//  Serial.print(". Message: ");
+//  String messageTemp;
+//  
+//  for (int i = 0; i < length; i++) {
+//    Serial.print((char)message[i]);
+//    messageTemp += (char)message[i];
+//  }
+//  Serial.println();
+//
+//  // Feel free to add more if statements to control more GPIOs with MQTT
+//
+//  // If a message is received on the topic room/lamp, you check if the message is either on or off. Turns the lamp GPIO according to the message
+//  if(topic=="Pumpensteuerung/Pumpe_Maternal"){
+//      Serial.print("Changing Room lamp to ");
+//      if(messageTemp == "on"){
+//        digitalWrite(ledPin, HIGH);
+//        Serial.print("On");
+//      }
+//      else if(messageTemp == "off"){
+//        digitalWrite(ledPin, LOW);
+//        Serial.print("Off");
+//      }
+//  }
+//  Serial.println();
+//}
 
 // This functions reconnects your ESP8266 to your MQTT broker
 // Change the function below if you want to subscribe to more topics with your ESP8266 
@@ -126,16 +101,34 @@ void setup() {
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
   
-  Serial.begin(115200);
-  
-  setup_wifi();
-  client.setServer(mqtt_broker, 1883);
-  client.setCallback(callback);
+    Serial.begin(115200);
+    setup_wifi();
+    client.setServer(MQTT_BROKER, 1883);
 
   
   Serial.println();
   Serial.println("Pressure Control");
 }
+
+void setup_wifi() {
+    delay(10);
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(SSID);
+ 
+    WiFi.begin(SSID, PSK);
+ 
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+ 
+    Serial.println("");
+    Serial.println("WiFi connected");
+    Serial.println("IP address: ");
+    Serial.println(WiFi.localIP());
+}
+
 
 void reconnect() {
     while (!client.connected()) {
@@ -165,7 +158,7 @@ void loop() {
 
   mqtt_delay = mqtt_delay +1;
   //  // Publishes new temperature and humidity every 3 seconds
-  if (mqtt_delay == 10000) {
+  if (mqtt_delay == 200) {
     digitalWrite(ledRot, HIGH);
     mqtt_delay = 0;
     static char Vordruck[7];
@@ -265,5 +258,5 @@ void loop() {
     }
   delay(200);  
   }
- //  delay(500); 
+   delay(10); 
 }
