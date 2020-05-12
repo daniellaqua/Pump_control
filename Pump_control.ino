@@ -61,38 +61,6 @@ long mqtt_delay = 0;
 //  Serial.println();
 //}
 
-// This functions reconnects your ESP8266 to your MQTT broker
-// Change the function below if you want to subscribe to more topics with your ESP8266 
-//void reconnect() {
-//  // Loop until we're reconnected
-//  while (!client.connected()) {
-//    Serial.print("Attempting MQTT connection...");
-//    // Attempt to connect
-//    /*
-//     YOU MIGHT NEED TO CHANGE THIS LINE, IF YOU'RE HAVING PROBLEMS WITH MQTT MULTIPLE CONNECTIONS
-//     To change the ESP device ID, you will have to give a new name to the ESP8266.
-//     Here's how it looks:
-//       if (client.connect("ESP8266Client")) {
-//     You can do it like this:
-//       if (client.connect("ESP1_Office")) {
-//     Then, for the other ESP:
-//       if (client.connect("ESP2_Garage")) {
-//      That should solve your MQTT multiple connections problem
-//    */
-//    if (client.connect("ESP8266Client")) {
-//      Serial.println("connected");  
-//      // Subscribe or resubscribe to a topic
-//      // You can subscribe to more topics (to control more LEDs in this example)
-//      client.subscribe("Pumpensteuerung/Pumpe_Maternal");
-//    } else {
-//      Serial.print("failed, rc=");
-//      Serial.print(client.state());
-//      Serial.println(" try again in 5 seconds");
-//      // Wait 5 seconds before retrying
-//      delay(5000);
-//    }
-//  }
-//}
 
 
 
@@ -103,11 +71,11 @@ void setup() {
   pinMode(ledRed, OUTPUT);
   // initialize the pushbutton pin as an input:
   pinMode(buttonMaternal, INPUT);
+  pinMode(buttonFetal, INPUT);
   
-    Serial.begin(115200);
-    setup_wifi();
-    client.setServer(MQTT_BROKER, 1883);
-
+  Serial.begin(115200);
+  setup_wifi();
+  client.setServer(MQTT_BROKER, 1883);
   
   Serial.println();
   Serial.println("Pressure Control");
