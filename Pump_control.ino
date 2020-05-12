@@ -9,9 +9,11 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 int sensorPin = A0;    // select the input pin for the potentiometer
-const int ledRot = D0;      // select the pin for the LED
-const int ledPin = D1;      // select the pin for the LED
-const int buttonPin = 12;     // the number of the pushbutton pin
+const int pumpMaternal = D0;      // select the pin for the LED
+const int pumpFetal = D1;
+const int ledRed = D2;      // select the pin for the LED
+const int buttonMaternal = D6;     // the number of the pushbutton pin
+const int buttonFetal = D5;     // the number of the pushbutton pin
 const int pressure_lvl_ready = 600;
 const int pressure_lvl_still_ready = 540;
 const float LSB = 0.003223; 
@@ -48,11 +50,11 @@ long mqtt_delay = 0;
 //  if(topic=="Pumpensteuerung/Pumpe_Maternal"){
 //      Serial.print("Changing Room lamp to ");
 //      if(messageTemp == "on"){
-//        digitalWrite(ledPin, HIGH);
+//        digitalWrite(pumpMaternal, HIGH);
 //        Serial.print("On");
 //      }
 //      else if(messageTemp == "off"){
-//        digitalWrite(ledPin, LOW);
+//        digitalWrite(pumpMaternal, LOW);
 //        Serial.print("Off");
 //      }
 //  }
@@ -95,11 +97,12 @@ long mqtt_delay = 0;
 
 
 void setup() {
-  // declare the ledPin as an OUTPUT:
-  pinMode(ledPin, OUTPUT);
-  pinMode(ledRot, OUTPUT);
+  // declare the pumpMaternal as an OUTPUT:
+  pinMode(pumpMaternal, OUTPUT);
+  pinMode(pumpFetal, OUTPUT);
+  pinMode(ledRed, OUTPUT);
   // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT);
+  pinMode(buttonMaternal, INPUT);
   
     Serial.begin(115200);
     setup_wifi();
@@ -159,30 +162,30 @@ void loop() {
   mqtt_delay = mqtt_delay +1;
   //  // Publishes new temperature and humidity every 3 seconds
   if (mqtt_delay == 200) {
-    digitalWrite(ledRot, HIGH);
+    digitalWrite(ledRed, HIGH);
     mqtt_delay = 0;
     static char Vordruck[7];
-    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    dtostrf(sensorValue, 6, 0, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
-    digitalWrite(ledRot, LOW);
+    digitalWrite(ledRed, LOW);
   }
 
 
 
-
+// Automatic Pump Switch-OFF
   if (sensorValue >= pressure_lvl_ready && pumpState == 1) {
     // turn LED off:
-    digitalWrite(ledPin, LOW);
+    digitalWrite(pumpMaternal, LOW);
     // change pump state to OFF
     pumpState = 0;
-//    client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
+    client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
+    client.publish("Pumpensteuerung/Hinweis_Maternal", "Pump stopped!");
     // print "Pump OFF"
 
 
-    static char Vordruck[7];
-    dtostrf(sensorVoltage, 6, 2, Vordruck);
+//    static char Vordruck[7];
+//    dtostrf(sensorValue, 6, 0, Vordruck);
 //    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
-
     Serial.println();
     Serial.println("pressure level reached");
     Serial.println("Pump: OFF");
@@ -192,23 +195,24 @@ void loop() {
     Serial.println(sensorVoltage);
     Serial.print("Pressure: ");
     Serial.println(sensorPressure);
+
   }
   // read the state of the pushbutton value:
-  buttonState = digitalRead(buttonPin);
+  buttonState = digitalRead(buttonMaternal);
 
   // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
   if (buttonState == HIGH) {
     if (pumpState == 1) {
       // turn LED OFF:
-      digitalWrite(ledPin, LOW);
+      digitalWrite(pumpMaternal, LOW);
       // change pump state to OFF
       pumpState = 0;
-//        client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
+        client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
 
     static char Vordruck[7];
-    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    dtostrf(sensorValue, 6, 2, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
-      
+    client.publish("Pumpensteuerung/Hinweis_Maternal", "Manueller Stopp");  
       // print "Pump OFF"
       Serial.println();
       Serial.println("Pump: OFF");
@@ -218,17 +222,20 @@ void loop() {
       Serial.println(sensorVoltage);
       Serial.print("Pressure: ");
       Serial.println(sensorPressure);
+      
     } else {
       if (sensorValue < pressure_lvl_still_ready) {
         // turn LED on:
-        digitalWrite(ledPin, HIGH);
+        digitalWrite(pumpMaternal, HIGH);
         // change pump state to ON
         pumpState = 1;
- //       client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
+       client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
+       client.publish("Pumpensteuerung/Hinweis_Maternal", " ");
 
     static char Vordruck[7];
-    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    dtostrf(sensorValue, 6, 2, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+    client.publish("Pumpensteuerung/Hinweis_Maternal", " ");
         
         // print "Pump ON"
         Serial.println();
@@ -239,10 +246,11 @@ void loop() {
         Serial.println(sensorVoltage);
         Serial.print("Pressure: ");
         Serial.println(sensorPressure);
+        
       } else {
 
     static char Vordruck[7];
-    dtostrf(sensorVoltage, 6, 2, Vordruck);
+    dtostrf(sensorValue, 6, 2, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
         
         // print "pressure already high"
@@ -254,6 +262,8 @@ void loop() {
         Serial.println(sensorVoltage);
         Serial.print("Pressure: ");
         Serial.println(sensorPressure);
+        client.publish("Pumpensteuerung/Hinweis_Maternal", "Pressure already high!");
+        
       }
     }
   delay(200);  
