@@ -102,7 +102,7 @@ void setup_wifi() {
 void reconnect() {
     while (!client.connected()) {
         Serial.print("Reconnecting...");
-        if (!client.connect("ESP8266Client")) {
+        if (!client.connect("ESP8266pump")) {
             Serial.print("failed, rc=");
             Serial.print(client.state());
             Serial.println(" retrying in 5 seconds");
