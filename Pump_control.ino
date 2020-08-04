@@ -1,16 +1,21 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
  
-const char* SSID = "WLAN-314868";
-const char* PSK = "83191081396733674200";
-const char* MQTT_BROKER = "192.168.2.148";
+//const char* SSID = "WLAN-314868";
+//const char* PSK = "83191081396733674200";
+//const char* MQTT_BROKER = "192.168.2.148";
+
+const char* SSID = "pulsoxi_phantom";
+const char* PSK = "NIFPO2018";
+const char* MQTT_BROKER = "192.168.1.2";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 int sensorPin = A0;    // select the input pin for the potentiometer
 const int pumpMaternal = D0;      // select the pin for the LED
-const int ledRed = D2;      // select the pin for the LED
+const int ledOrange = D1;
+const int ledGreen = D2;      // select the pin for the LED
 const int buttonMaternal = D6;     // the number of the pushbutton pin
 const int pressure_lvl_ready = 600;
 const int pressure_lvl_still_ready = 540;
@@ -20,7 +25,7 @@ const float LSB = 0.003223;
 int sensorValue = 0;  // variable to store the value coming from the sensor
 float sensorVoltage = 0;
 int sensorPressure = 0;
-int buttonState = 0;         // variable for reading the pushbutton status
+int buttonState = 1;         // variable for reading the pushbutton status
 int pumpState = 0;
 
 // Timers auxiliar variables
@@ -42,7 +47,7 @@ void callback(String topic, byte* message, unsigned int length) {
   // Feel free to add more if statements to control more GPIOs with MQTT
 
   // If a message is received on the topic room/lamp, you check if the message is either on or off. Turns the lamp GPIO according to the message
-  if(topic=="Pumpensteuerung/Pumpe_Maternal"){
+  if(topic=="Pumpensteuerung/Remote_Pumpe_Maternal"){
       Serial.print("switching pump: ");
       if(messageTemp == "on"){
         digitalWrite(pumpMaternal, HIGH);
@@ -66,7 +71,8 @@ void callback(String topic, byte* message, unsigned int length) {
 void setup() {
   // declare the pumpMaternal as an OUTPUT:
   pinMode(pumpMaternal, OUTPUT);
-  pinMode(ledRed, OUTPUT);
+  pinMode(ledOrange, OUTPUT);
+  pinMode(ledGreen, OUTPUT);
   // initialize the pushbutton pin as an input:
   pinMode(buttonMaternal, INPUT);
   
@@ -86,7 +92,10 @@ void setup_wifi() {
     Serial.println(SSID);
  
     WiFi.begin(SSID, PSK);
- 
+    IPAddress ip(192,168,1,200);   
+    IPAddress gateway(192,168,1,1);   
+    IPAddress subnet(255,255,255,0);   
+    WiFi.config(ip, gateway, subnet);
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
@@ -108,7 +117,7 @@ void reconnect() {
             Serial.println(" retrying in 5 seconds");
             delay(5000);
         }
-        client.subscribe("Pumpensteuerung/Pumpe_Maternal");
+        client.subscribe("Pumpensteuerung/Remote_Pumpe_Maternal");
     }
 }
 
@@ -117,7 +126,15 @@ void loop() {
   sensorValue = analogRead(sensorPin);
   sensorVoltage = sensorValue * LSB;
   sensorPressure = sensorValue * 250;
+  
+  if (sensorValue > pressure_lvl_still_ready){
+    digitalWrite(ledOrange, HIGH);
+  }
+  else {
+    digitalWrite(ledOrange, LOW);
+  }
 
+  
   if (!client.connected()) {
     reconnect();
   }
@@ -126,12 +143,12 @@ void loop() {
   mqtt_delay = mqtt_delay +1;
   
   if (mqtt_delay == 200) {
-    digitalWrite(ledRed, HIGH);
+    //digitalWrite(ledGreen, HIGH);
     mqtt_delay = 0;
     static char Vordruck[7];
     dtostrf(sensorValue, 6, 0, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
-    digitalWrite(ledRed, LOW);
+    //digitalWrite(ledGreen, LOW);
   }
 
 
@@ -160,11 +177,11 @@ void loop() {
   // read the state of the pushbutton value:
   buttonState = digitalRead(buttonMaternal);
 
-  // check if the pushbutton is pressed. If it is, the buttonState is HIGH:
-  if (buttonState == HIGH) {
-    if (pumpState == 1) {
+  // check if the pushbutton is pressed. If it is, the buttonState is LOW:
+  if (buttonState == LOW) { // wenn Taste gedrückt (also LOW)
+    if (pumpState == 1) { //wenn pumpe an -- also rote LED an) --> Pumpe ausmachen
       // switch pump OFF:
-      digitalWrite(pumpMaternal, LOW);
+      digitalWrite(pumpMaternal, LOW); //Pin auf Low -- rote LED aus
       // change pump state to OFF
       pumpState = 0;
       client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
