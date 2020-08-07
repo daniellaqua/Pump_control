@@ -17,7 +17,7 @@ const int pumpMaternal = D0;      // select the pin for the LED
 const int ledOrange = D1;
 const int ledGreen = D2;      // select the pin for the LED
 const int buttonMaternal = D6;     // the number of the pushbutton pin
-const int pressure_lvl_ready = 600;
+const int pressure_lvl_ready = 610;
 const int pressure_lvl_still_ready = 540;
 const float LSB = 0.003223; 
 
@@ -50,15 +50,21 @@ void callback(String topic, byte* message, unsigned int length) {
   if(topic=="Pumpensteuerung/Remote_Pumpe_Maternal"){
       Serial.print("switching pump: ");
       if(messageTemp == "on"){
-        digitalWrite(pumpMaternal, HIGH);
-        Serial.print("On");
-        //client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
-        client.publish("Pumpensteuerung/Hinweis_Maternal", "Remote start!");
-      }
-      else if(messageTemp == "off"){
+        if (sensorValue < pressure_lvl_still_ready) {
+          digitalWrite(pumpMaternal, HIGH);
+          pumpState = 1;
+          Serial.print("On");
+          client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
+          client.publish("Pumpensteuerung/Hinweis_Maternal", "Remote start!");
+        } else {
+          // pressure is high --> Don't switch pump ON
+          client.publish("Pumpensteuerung/Hinweis_Maternal", "Pressure already high!");
+        }
+      } else if(messageTemp == "off"){
         digitalWrite(pumpMaternal, LOW);
+        pumpState = 0;
         Serial.print("Off");
-        //client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
+        client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
         client.publish("Pumpensteuerung/Hinweis_Maternal", "Remote stop!");
       }
   }
@@ -143,19 +149,19 @@ void loop() {
   mqtt_delay = mqtt_delay +1;
   
   if (mqtt_delay == 200) {
-    //digitalWrite(ledGreen, HIGH);
+    digitalWrite(ledGreen, HIGH);
     mqtt_delay = 0;
     static char Vordruck[7];
     dtostrf(sensorValue, 6, 0, Vordruck);
     client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
-    //digitalWrite(ledGreen, LOW);
+    digitalWrite(ledGreen, LOW);
   }
 
 
 
   // Automatic pump Switch-OFF
   if (sensorValue >= pressure_lvl_ready && pumpState == 1) {
-    // turn LED off:
+    // turn Pump off:
     digitalWrite(pumpMaternal, LOW);
     // change pump state to OFF
     pumpState = 0;
