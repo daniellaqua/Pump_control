@@ -1,22 +1,18 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
- 
-//const char* SSID = "WLAN-314868";
-//const char* PSK = "83191081396733674200";
-//const char* MQTT_BROKER = "192.168.2.148";
 
 const char* SSID = "pulsoxi_phantom";
 const char* PSK = "NIFPO2018";
 const char* MQTT_BROKER = "192.168.1.2";
 
-WiFiClient espClient;
-PubSubClient client(espClient);
+WiFiClient espPumpFetal;
+PubSubClient client(espPumpFetal);
 
 int sensorPin = A0;    // select the input pin for the potentiometer
-const int pumpMaternal = D0;      // select the pin for the LED
+const int pumpFetal = D0;      // select the pin for the LED
 const int ledOrange = D1;
 const int ledGreen = D2;      // select the pin for the LED
-const int buttonMaternal = D6;     // the number of the pushbutton pin
+const int buttonFetal = D6;     // the number of the pushbutton pin
 const int pressure_lvl_ready = 610;
 const int pressure_lvl_still_ready = 540;
 const float LSB = 0.003223; 
@@ -47,25 +43,25 @@ void callback(String topic, byte* message, unsigned int length) {
   // Feel free to add more if statements to control more GPIOs with MQTT
 
   // If a message is received on the topic room/lamp, you check if the message is either on or off. Turns the lamp GPIO according to the message
-  if(topic=="Pumpensteuerung/Remote_Pumpe_Maternal"){
+  if(topic=="Pumpensteuerung/Remote_Pumpe_Fetal"){
       Serial.print("switching pump: ");
       if(messageTemp == "on"){
         if (sensorValue < pressure_lvl_still_ready) {
-          digitalWrite(pumpMaternal, HIGH);
+          digitalWrite(pumpFetal, HIGH);
           pumpState = 1;
           Serial.print("On");
-          client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
-          client.publish("Pumpensteuerung/Hinweis_Maternal", "Remote start!");
+          client.publish("Pumpensteuerung/Pumpe_Fetal", "on");
+          client.publish("Pumpensteuerung/Hinweis_Fetal", "Remote start!");
         } else {
           // pressure is high --> Don't switch pump ON
-          client.publish("Pumpensteuerung/Hinweis_Maternal", "Pressure already high!");
+          client.publish("Pumpensteuerung/Hinweis_Fetal", "Pressure already high!");
         }
       } else if(messageTemp == "off"){
-        digitalWrite(pumpMaternal, LOW);
+        digitalWrite(pumpFetal, LOW);
         pumpState = 0;
         Serial.print("Off");
-        client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
-        client.publish("Pumpensteuerung/Hinweis_Maternal", "Remote stop!");
+        client.publish("Pumpensteuerung/Pumpe_Fetal", "off");
+        client.publish("Pumpensteuerung/Hinweis_Fetal", "Remote stop!");
       }
   }
   Serial.println();
@@ -75,12 +71,12 @@ void callback(String topic, byte* message, unsigned int length) {
 
 
 void setup() {
-  // declare the pumpMaternal as an OUTPUT:
-  pinMode(pumpMaternal, OUTPUT);
+  // declare the pumpFetal as an OUTPUT:
+  pinMode(pumpFetal, OUTPUT);
   pinMode(ledOrange, OUTPUT);
   pinMode(ledGreen, OUTPUT);
   // initialize the pushbutton pin as an input:
-  pinMode(buttonMaternal, INPUT);
+  pinMode(buttonFetal, INPUT);
   
   Serial.begin(115200);
   setup_wifi();
@@ -98,7 +94,7 @@ void setup_wifi() {
     Serial.println(SSID);
  
     WiFi.begin(SSID, PSK);
-    IPAddress ip(192,168,1,200);   
+    IPAddress ip(192,168,1,201);   
     IPAddress gateway(192,168,1,1);   
     IPAddress subnet(255,255,255,0);   
     WiFi.config(ip, gateway, subnet);
@@ -117,13 +113,13 @@ void setup_wifi() {
 void reconnect() {
     while (!client.connected()) {
         Serial.print("Reconnecting...");
-        if (!client.connect("ESP8266pump")) {
+        if (!client.connect("espPumpFetal")) {
             Serial.print("failed, rc=");
             Serial.print(client.state());
             Serial.println(" retrying in 5 seconds");
             delay(5000);
         }
-        client.subscribe("Pumpensteuerung/Remote_Pumpe_Maternal");
+        client.subscribe("Pumpensteuerung/Remote_Pumpe_Fetal");
     }
 }
 
@@ -153,7 +149,7 @@ void loop() {
     mqtt_delay = 0;
     static char Vordruck[7];
     dtostrf(sensorValue, 6, 0, Vordruck);
-    client.publish("Pumpensteuerung/Vordruck_Maternal", Vordruck);
+    client.publish("Pumpensteuerung/Vordruck_Fetal", Vordruck);
     digitalWrite(ledGreen, LOW);
   }
 
@@ -162,11 +158,11 @@ void loop() {
   // Automatic pump Switch-OFF
   if (sensorValue >= pressure_lvl_ready && pumpState == 1) {
     // turn Pump off:
-    digitalWrite(pumpMaternal, LOW);
+    digitalWrite(pumpFetal, LOW);
     // change pump state to OFF
     pumpState = 0;
-    client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
-    client.publish("Pumpensteuerung/Hinweis_Maternal", "Pump stopped!");
+    client.publish("Pumpensteuerung/Pumpe_Fetal", "off");
+    client.publish("Pumpensteuerung/Hinweis_Fetal", "Pump stopped!");
 
     // print "Pump OFF"
     Serial.println();
@@ -181,17 +177,17 @@ void loop() {
   }
   
   // read the state of the pushbutton value:
-  buttonState = digitalRead(buttonMaternal);
+  buttonState = digitalRead(buttonFetal);
 
   // check if the pushbutton is pressed. If it is, the buttonState is LOW:
   if (buttonState == LOW) { // wenn Taste gedrückt (also LOW)
     if (pumpState == 1) { //wenn pumpe an -- also rote LED an) --> Pumpe ausmachen
       // switch pump OFF:
-      digitalWrite(pumpMaternal, LOW); //Pin auf Low -- rote LED aus
+      digitalWrite(pumpFetal, LOW); //Pin auf Low -- rote LED aus
       // change pump state to OFF
       pumpState = 0;
-      client.publish("Pumpensteuerung/Pumpe_Maternal", "off");
-      client.publish("Pumpensteuerung/Hinweis_Maternal", "Manueller Stopp");
+      client.publish("Pumpensteuerung/Pumpe_Fetal", "off");
+      client.publish("Pumpensteuerung/Hinweis_Fetal", "Manueller Stopp");
       
       // print "Pump OFF"
       Serial.println();
@@ -208,11 +204,11 @@ void loop() {
       // pressure low --> switch pump on
       if (sensorValue < pressure_lvl_still_ready) {
         // switch pump ON:
-        digitalWrite(pumpMaternal, HIGH);
+        digitalWrite(pumpFetal, HIGH);
         // change pump state to ON
         pumpState = 1;
-        client.publish("Pumpensteuerung/Pumpe_Maternal", "on");
-        client.publish("Pumpensteuerung/Hinweis_Maternal", " ");
+        client.publish("Pumpensteuerung/Pumpe_Fetal", "on");
+        client.publish("Pumpensteuerung/Hinweis_Fetal", " ");
         
         // print "Pump ON"
         Serial.println();
@@ -227,7 +223,7 @@ void loop() {
       } else {
         // pressure is high --> Don't switch pump ON
         
-        client.publish("Pumpensteuerung/Hinweis_Maternal", "Pressure already high!");
+        client.publish("Pumpensteuerung/Hinweis_Fetal", "Pressure already high!");
 
         // print "pressure already high"
         Serial.println();
